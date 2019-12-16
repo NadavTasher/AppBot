@@ -1,5 +1,6 @@
 // Requires
 const fs = require('fs');
+const temp = require('temp');
 const request = require('request');
 const Discord = require('discord.js');
 
@@ -14,6 +15,8 @@ const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
 let templates = [];
+
+temp.track();
 
 /**
  * Handle bot startup
@@ -32,22 +35,11 @@ Client.on('ready', () => {
  */
 Client.on('message', (receivedMessage) => {
     if (receivedMessage.author !== Client.user) {
-        if (templates.length > 0) {
-            // Loop through templates
-            let template = null;
-            for (let t = 0; t < templates.length && template === null; t++) {
-                // Filter template name
-                let filtered = templates[t].toLowerCase().replace("template", "");
-                // Check whether message matches the regex
-                if (receivedMessage.content.startsWith(filtered)) {
-                    template = templates[t];
-                }
-            }
-            if (template !== null) {
-                receivedMessage.channel.send("Ok, creating app using " + template);
+        if (receivedMessage.content.startsWith("::"))
+            command(receivedMessage.content.substring(2), receivedMessage.channel);
+        let message = receivedMessage.content;
 
-            }
-        }
+
         if (receivedMessage.content.includes(Client.user.toString())) {
 
         }
@@ -61,6 +53,88 @@ Client.on('message', (receivedMessage) => {
  * Login to discord
  */
 Client.login(fs.readFileSync('BotSecretToken', 'utf8'));
+
+/**
+ * This function handles commands.
+ * @param message Text
+ * @param channel Channel
+ */
+function command(message, channel) {
+    if (message === "help") {
+        let help = "";
+        help += "**AppBot** by Webappify";
+        help += "\n";
+        help += "Commands:";
+        help += "\n";
+        help += "`::help` - Shows this message";
+        help += "\n";
+        help += "`::[template],[name],[text]` - Creates a new app with the text as content";
+        help += "\n";
+        help += "`::[template],[name],[html],[js]` - Creates a new app with the html as content and js as code.";
+        channel.send(help);
+    } else {
+        if (templates.length > 0) {
+            // Loop through templates
+            let template = null;
+            for (let t = 0; t < templates.length && template === null; t++) {
+                // Filter template name
+                let filtered = templates[t].toLowerCase().replace("template", "");
+                // Check whether message matches the regex
+                if (message.startsWith(filtered)) {
+                    // Clear message of template
+                    message = message.substring(filtered.length);
+                    // Set template
+                    template = templates[t];
+                }
+            }
+            if (template !== null) {
+                // Parse json
+                let parsed = JSON.parse(message);
+                // Send message
+                channel.send("Ok, creating app using " + template);
+                // Request app generation
+                api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
+                    flavor: template,
+                    configuration: parsed
+                }, (success, result) => {
+                    if (success) {
+                        // Send app
+                        channel.send("You may enter you app here: " + WEBAPPIFY_URL_APPS + result.id);
+                        temp.open(function (error, info) {
+                            if (!error) {
+                                fs.writeFile(info.fd, result.sources, 'base64', (error) => {
+                                    channel.send("Download sources", {
+                                        files: [
+                                            info.fd
+                                        ]
+                                    });
+                                });
+                            }
+                        });
+
+                        temp.open(function (error, info) {
+                            if (!error) {
+                                fs.writeFile(info.fd, result.docker, 'base64', (error) => {
+                                    console.log(error);
+                                    channel.send("Download docker", {
+                                        files: [
+                                            info.fd
+                                        ]
+                                    });
+                                });
+                            }else{
+                                console.log(error);
+                            }
+                        });
+                    } else {
+                        // Display error
+                        channel.send("Error creating application: " + result);
+                    }
+                });
+            }
+        }
+    }
+}
 
 /**
  * This function is responsible for API calls between the frontend and the backend.
