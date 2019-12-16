@@ -2,10 +2,10 @@
 const fs = require('fs');
 const temp = require('temp');
 const request = require('request');
-const Discord = require('discord.js');
+const {Client, RichEmbed} = require('discord.js');
 
 // Discord client initialization
-const Client = new Discord.Client();
+const client = new Client();
 
 // Webappify constants
 const WEBAPPIFY_API = "webappify";
@@ -21,7 +21,7 @@ temp.track();
 /**
  * Handle bot startup
  */
-Client.on('ready', () => {
+client.on('ready', () => {
     api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
         if (success)
             templates = result;
@@ -33,14 +33,14 @@ Client.on('ready', () => {
 /**
  * Handle an incoming message
  */
-Client.on('message', (receivedMessage) => {
-    if (receivedMessage.author !== Client.user) {
+client.on('message', (receivedMessage) => {
+    if (receivedMessage.author !== client.user) {
         if (receivedMessage.content.startsWith("::"))
-            command(receivedMessage.content.substring(2), receivedMessage.channel);
+            command(receivedMessage.content.substring(2), receivedMessage.author, receivedMessage.channel);
         let message = receivedMessage.content;
 
 
-        if (receivedMessage.content.includes(Client.user.toString())) {
+        if (receivedMessage.content.includes(client.user.toString())) {
 
         }
         if (receivedMessage.content.startsWith())
@@ -52,14 +52,15 @@ Client.on('message', (receivedMessage) => {
 /**
  * Login to discord
  */
-Client.login(fs.readFileSync('BotSecretToken', 'utf8'));
+client.login(fs.readFileSync('BotSecretToken', 'utf8'));
 
 /**
  * This function handles commands.
  * @param message Text
+ * @param author Author
  * @param channel Channel
  */
-function command(message, channel) {
+function command(message, author, channel) {
     if (message === "help") {
         let help = "";
         help += "**AppBot** by Webappify";
@@ -88,47 +89,49 @@ function command(message, channel) {
                 }
             }
             if (template !== null) {
-                // Parse json
-                let parsed = JSON.parse(message);
-                // Send message
-                channel.send("Ok, creating app using " + template);
-                // Request app generation
-                api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-                    flavor: template,
-                    configuration: parsed
-                }, (success, result) => {
-                    if (success) {
-                        // Send app
-                        channel.send("You may enter you app here: " + WEBAPPIFY_URL_APPS + result.id);
-                        temp.open(function (error, info) {
-                            if (!error) {
-                                fs.writeFile(info.fd, result.sources, 'base64', (error) => {
-                                    channel.send("Download sources", {
-                                        files: [
-                                            info.fd
-                                        ]
-                                    });
-                                });
-                            }
-                        });
+                // Parse input
 
-                        temp.open(function (error, info) {
-                            if (!error) {
-                                fs.writeFile(info.fd, result.docker, 'base64', (error) => {
-                                    console.log(error);
-                                    channel.send("Download docker", {
-                                        files: [
-                                            info.fd
-                                        ]
-                                    });
-                                });
-                            }else{
-                                console.log(error);
+                // Send message
+                channel.send("Ok, creating app using " + template).then(progress => {
+                    try {
+                        // Request app generation
+                        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
+                            flavor: template,
+                            configuration: {
+                                name: name,
+                                description: description,
+                                color: color,
+                                layout: layout,
+                                style: style,
+                                code: {
+                                    app: app,
+                                    load: load
+                                }
+                            }
+                        }, (success, result) => {
+                            // Delete progress message
+                            progress.delete();
+                            if (success) {
+                                // Send app
+                                const embed = new RichEmbed()
+                                    .setColor(0x008080)
+                                    .setTitle('AppBot application')
+                                    .setDescription("You application, based on '" + template + "', is ready.")
+                                    .setURL(WEBAPPIFY_URL_APPS + result.id)
+                                    .addField('Requested by', author.username)
+                                    .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
+                                ;
+                                channel.send(embed);
+                            } else {
+                                // Display error
+                                channel.send("oops, an error occurred!");
                             }
                         });
-                    } else {
+                    } catch (e) {
+                        // Delete progress message
+                        progress.delete();
                         // Display error
-                        channel.send("Error creating application: " + result);
+                        channel.send("oops, it looks like this isn't the correct syntax!");
                     }
                 });
             }
