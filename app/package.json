@@ -4,11 +4,12 @@
   "description": "This bot creates and deploys webapps.",
   "main": "app.js",
   "scripts": {
-    "test": ""
+    "start": "node app.js"
   },
   "author": "Nadav Tasher",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "latest"
+    "discord.js": "latest",
+    "request": "^2.88.0"
   }
 }

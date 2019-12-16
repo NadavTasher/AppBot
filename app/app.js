@@ -1,5 +1,6 @@
 // Requires
-const FileSystem = require('fs');
+const fs = require('fs');
+const request = require('request');
 const Discord = require('discord.js');
 
 // Discord client initialization
@@ -7,7 +8,9 @@ const Client = new Discord.Client();
 
 // Webappify constants
 const WEBAPPIFY_API = "webappify";
-const WEBAPPIFY_URL = "https://webappify.com/";
+const WEBAPPIFY_URL = "https://webappify.org/";
+const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
+const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
 let templates = [];
@@ -16,7 +19,7 @@ let templates = [];
  * Handle bot startup
  */
 Client.on('ready', () => {
-    api(WEBAPPIFY_URL + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
+    api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
         if (success)
             templates = result;
         else
@@ -36,14 +39,13 @@ Client.on('message', (receivedMessage) => {
                 // Filter template name
                 let filtered = templates[t].toLowerCase().replace("template", "");
                 // Check whether message matches the regex
-                if (("/^" + filtered + "\(.+\)$/").test(receivedMessage.content)) {
+                if (receivedMessage.content.startsWith(filtered)) {
                     template = templates[t];
                 }
             }
-            if (template === null){
-                receivedMessage.channel.send("No such template / Wrong syntax");
-            } else {
-                receivedMessage.channel.send("Ok, creating app with template "+template);
+            if (template !== null) {
+                receivedMessage.channel.send("Ok, creating app using " + template);
+
             }
         }
         if (receivedMessage.content.includes(Client.user.toString())) {
@@ -58,7 +60,7 @@ Client.on('message', (receivedMessage) => {
 /**
  * Login to discord
  */
-Client.login(FileSystem.readFileSync('BotSecretToken', 'utf8'));
+Client.login(fs.readFileSync('BotSecretToken', 'utf8'));
 
 /**
  * This function is responsible for API calls between the frontend and the backend.
@@ -70,41 +72,39 @@ Client.login(FileSystem.readFileSync('BotSecretToken', 'utf8'));
  * @param APIs The API parameters for the API call (for API layering)
  */
 function api(endpoint = null, api = null, action = null, parameters = null, callback = null, APIs = {}) {
-    let form = new FormData();
-    form.append("api", JSON.stringify(hook(api, action, parameters, APIs)));
-    if (window.navigator.onLine) {
-        fetch(endpoint, {
-            method: "post",
-            body: form
-        }).then(response => {
-            response.text().then((result) => {
-                if (callback !== null && api !== null && action !== null) {
+    request.post({
+        url: endpoint,
+        form: {
+            api: JSON.stringify(hook(api, action, parameters, APIs))
+        }
+    }, function (error, httpResponse, result) {
+        if (error && callback !== null) {
+            callback(false, error);
+        } else {
+            if (callback !== null && api !== null && action !== null) {
+                try {
+                    let json = JSON.parse(result);
                     try {
-                        let json = JSON.parse(result);
-                        try {
-                            if (api in json) {
-                                if ("success" in json[api] && "result" in json[api]) {
-                                    callback(json[api]["success"] === true, json[api]["result"]);
-                                } else {
-                                    callback(false, "API parameters not found");
-                                }
+                        if (api in json) {
+                            if ("success" in json[api] && "result" in json[api]) {
+                                callback(json[api]["success"] === true, json[api]["result"]);
                             } else {
-                                callback(false, "API not found");
+                                callback(false, "API parameters not found");
                             }
-                        } catch (e) {
+                        } else {
+                            callback(false, "API not found");
                         }
                     } catch (e) {
-                        try {
-                            callback(false, "API result isn't JSON");
-                        } catch (e) {
-                        }
+                    }
+                } catch (e) {
+                    try {
+                        callback(false, "API result isn't JSON");
+                    } catch (e) {
                     }
                 }
-            });
-        });
-    } else {
-        callback(false, "Offline");
-    }
+            }
+        }
+    });
 }
 
 /**
@@ -125,12 +125,6 @@ function hook(api = null, action = null, parameters = null, APIs = {}) {
         }
     }
     return APIs;
-}
-
-
-function webappify() {
-
-    page("home");
 }
 
 function finish() {
