@@ -39,17 +39,8 @@ client.on('ready', () => {
 client.on('message', (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
         if (receivedMessage.content.startsWith(PREFIX))
-            command(receivedMessage.content.substring(PREFIX.length), receivedMessage.author, receivedMessage.channel);
-        let message = receivedMessage.content;
-
-
-        if (receivedMessage.content.includes(client.user.toString())) {
-
-        }
-        if (receivedMessage.content.startsWith())
-            receivedMessage.channel.send("Message received: " + receivedMessage.content);
+            handle(receivedMessage.content.substring(PREFIX.length), receivedMessage.author, receivedMessage.channel);
     }
-
 });
 
 /**
@@ -63,10 +54,18 @@ client.login(fs.readFileSync('BotSecretToken', 'utf8'));
  * @param author Author
  * @param channel Channel
  */
-function command(message, author, channel) {
+function handle(message, author, channel) {
     if (message === "help") {
+        const embed = new RichEmbed()
+            .setColor(0x008080)
+            .setTitle('AppBot Help')
+            .setDescription('Here are some commands you can use:')
+            .addField('Requested by', author.username)
+            .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
+        ;
+        channel.send(embed);
         let help = "";
-        help += "**AppBot** by Webappify";
+        help += "**AppBot** / Webappify.org";
         help += "\n";
         help += "Commands:";
         help += "\n";
@@ -100,71 +99,81 @@ function command(message, author, channel) {
         help += "```";
         channel.send(help);
     } else {
-        if (templates.length > 0) {
-            // Loop through templates
-            let template = null;
-            for (let t = 0; t < templates.length && template === null; t++) {
+        if (message === "templates") {
+            let text = "Templates:\n```";
+            for (let t = 0; t < templates.length; t++) {
                 // Filter template name
-                let filtered = templates[t].toLowerCase().replace("template", "");
-                // Check whether message matches the regex
-                if (message.startsWith(filtered)) {
-                    // Clear message of template
-                    message = message.substring(filtered.length);
-                    // Set template
-                    template = templates[t];
-                }
+                text += "\n" + templates[t].toLowerCase().replace("template", "");
             }
-            if (template !== null) {
-                // Parse input
-                let configuration = {
-                    name: "AppName",
-                    description: "AppDescription",
-                    color: "#FFFFFF",
-                    layout: "",
-                    style: "",
-                    code: {
-                        app: "",
-                        load: ""
+            text += "\n```";
+            channel.send(text);
+        } else {
+            if (templates.length > 0) {
+                // Loop through templates
+                let template = null;
+                for (let t = 0; t < templates.length && template === null; t++) {
+                    // Filter template name
+                    let filtered = templates[t].toLowerCase().replace("template", "");
+                    // Check whether message matches the regex
+                    if (message.startsWith(filtered)) {
+                        // Clear message of template
+                        message = message.substring(filtered.length);
+                        // Set template
+                        template = templates[t];
                     }
-                };
-                // Split message
-                let lines = message.substring(1).split("\n");
-                for (let l = 0; l < lines.length; l++) {
-
                 }
-                // Send message
-                channel.send("Ok, creating app using " + template).then(progress => {
-                    try {
-                        // Request app generation
-                        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-                            flavor: template,
-                            configuration: configuration
-                        }, (success, result) => {
+                if (template !== null) {
+                    // Parse input
+                    let configuration = {
+                        name: "AppName",
+                        description: "AppDescription",
+                        color: "#FFFFFF",
+                        layout: "",
+                        style: "",
+                        code: {
+                            app: "",
+                            load: ""
+                        }
+                    };
+                    // Split message
+                    let lines = message.substring(1).split("\n");
+                    for (let l = 0; l < lines.length; l++) {
+
+                    }
+                    // Send message
+                    channel.send("Ok, creating app using " + template).then(progress => {
+                        try {
+                            // Request app generation
+                            api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
+                                flavor: template,
+                                configuration: configuration
+                            }, (success, result) => {
+                                // Delete progress message
+                                progress.delete();
+                                if (success) {
+                                    // Send app
+                                    const embed = new RichEmbed()
+                                        .setColor(0x008080)
+                                        .setTitle('AppBot application')
+                                        .setDescription("You application, based on '" + template + "', is ready.")
+                                        .setURL(WEBAPPIFY_URL_APPS + result.id)
+                                        .addField('Requested by', author.username)
+                                        .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
+                                    ;
+                                    channel.send(embed);
+                                } else {
+                                    // Display error
+                                    channel.send("oops, an error occurred!");
+                                }
+                            });
+                        } catch (e) {
                             // Delete progress message
                             progress.delete();
-                            if (success) {
-                                // Send app
-                                const embed = new RichEmbed()
-                                    .setColor(0x008080)
-                                    .setTitle('AppBot application')
-                                    .setDescription("You application, based on '" + template + "', is ready.")
-                                    .setURL(WEBAPPIFY_URL_APPS + result.id)
-                                    .addField('Requested by', author.username)
-                                    .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
-                                ;
-                                channel.send(embed);
-                            } else {
-                                // Display error
-                                channel.send("oops, an error occurred!");
-                            }
-                        });
-                    } catch (e) {
-                        // Delete progress message
-                        progress.delete();
-                        // Display error
-                        channel.send("oops, it looks like this isn't the correct syntax!");
-                    }
-                });
+                            // Display error
+                            channel.send("oops, it looks like this isn't the correct syntax!");
+                        }
+                    });
+                }
             }
         }
     }
