@@ -1,0 +1,14 @@
+{
+  "name": "appbot",
+  "version": "1.0.0",
+  "description": "This bot creates and deploys webapps.",
+  "main": "app.js",
+  "scripts": {
+    "test": ""
+  },
+  "author": "Nadav Tasher",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "latest"
+  }
+}
