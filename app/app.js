@@ -14,6 +14,9 @@ const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
 const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
+// AppBot
+const PREFIX = "::";
+
 let templates = [];
 
 temp.track();
@@ -35,8 +38,8 @@ client.on('ready', () => {
  */
 client.on('message', (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
-        if (receivedMessage.content.startsWith("::"))
-            command(receivedMessage.content.substring(2), receivedMessage.author, receivedMessage.channel);
+        if (receivedMessage.content.startsWith(PREFIX))
+            command(receivedMessage.content.substring(PREFIX.length), receivedMessage.author, receivedMessage.channel);
         let message = receivedMessage.content;
 
 
@@ -67,11 +70,34 @@ function command(message, author, channel) {
         help += "\n";
         help += "Commands:";
         help += "\n";
-        help += "`::help` - Shows this message";
+        help += "```";
         help += "\n";
-        help += "`::[template],[name],[text]` - Creates a new app with the text as content";
+        help += PREFIX + "help -        Shows this message";
         help += "\n";
-        help += "`::[template],[name],[html],[js]` - Creates a new app with the html as content and js as code.";
+        help += PREFIX + "templates -   List templates";
+        help += "\n";
+        help += PREFIX + "[template] -  Creates a new app";
+        help += "```";
+        help += "\n";
+        help += "Parameters:";
+        help += "\n";
+        help += "```";
+        help += "\n";
+        help += "name -          The app's name";
+        help += "\n";
+        help += "description -   The app's description";
+        help += "\n";
+        help += "color -         The app's theme color (in #hexdec)";
+        help += "\n";
+        help += "layout -        HTML markup for the app's layout";
+        help += "\n";
+        help += "style -         CSS markup for the app's style";
+        help += "\n";
+        help += "appcode -       JavaScript app code for the app";
+        help += "\n";
+        help += "loadcode -      JavaScript load code for the app";
+        help += "\n";
+        help += "```";
         channel.send(help);
     } else {
         if (templates.length > 0) {
@@ -90,24 +116,29 @@ function command(message, author, channel) {
             }
             if (template !== null) {
                 // Parse input
+                let configuration = {
+                    name: "AppName",
+                    description: "AppDescription",
+                    color: "#FFFFFF",
+                    layout: "",
+                    style: "",
+                    code: {
+                        app: "",
+                        load: ""
+                    }
+                };
+                // Split message
+                let lines = message.substring(1).split("\n");
+                for (let l = 0; l < lines.length; l++) {
 
+                }
                 // Send message
                 channel.send("Ok, creating app using " + template).then(progress => {
                     try {
                         // Request app generation
                         api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
                             flavor: template,
-                            configuration: {
-                                name: name,
-                                description: description,
-                                color: color,
-                                layout: layout,
-                                style: style,
-                                code: {
-                                    app: app,
-                                    load: load
-                                }
-                            }
+                            configuration: configuration
                         }, (success, result) => {
                             // Delete progress message
                             progress.delete();
