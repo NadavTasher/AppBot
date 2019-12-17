@@ -68,7 +68,7 @@ function handle(message, author, channel) {
         help += "\n";
         help += WEBAPPIFY_COMMAND_PREFIX + "help -        Shows this message";
         help += "\n";
-        help += WEBAPPIFY_COMMAND_PREFIX + "templates -   List templates";
+        help += WEBAPPIFY_COMMAND_PREFIX + "templates -   Lists templates";
         help += "\n";
         help += WEBAPPIFY_COMMAND_PREFIX + "[template] -  Creates a new app";
         help += "```";
