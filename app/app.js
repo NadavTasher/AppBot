@@ -18,7 +18,8 @@ const WEBAPPIFY_FOOTER_TEXT = "Webappify by Nadav Tasher";
 const WEBAPPIFY_FOOTER_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
 
 // AppBot
-const PREFIX = "::";
+const COMMAND_PREFIX = "::";
+const DICTIONARY_REGEX = /(.+:)((`([^`\n]+)`)|(\n|)(```([^`]+)```)|([^`\n]+))/g;
 
 let templates = [];
 
@@ -41,8 +42,8 @@ client.on("ready", () => {
  */
 client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
-        if (receivedMessage.content.startsWith(PREFIX))
-            handle(receivedMessage.content.substring(PREFIX.length), receivedMessage.author, receivedMessage.channel);
+        if (receivedMessage.content.startsWith(COMMAND_PREFIX))
+            handle(receivedMessage.content.substring(COMMAND_PREFIX.length), receivedMessage.author, receivedMessage.channel);
     }
 });
 
@@ -60,17 +61,15 @@ client.login(fs.readFileSync("BotSecretToken", "utf8"));
 function handle(message, author, channel) {
     if (message === "help") {
         let help = "";
-        help += "**AppBot** / Webappify.org";
-        help += "\n";
         help += "Commands:";
         help += "\n";
         help += "```";
         help += "\n";
-        help += PREFIX + "help -        Shows this message";
+        help += COMMAND_PREFIX + "help -        Shows this message";
         help += "\n";
-        help += PREFIX + "templates -   List templates";
+        help += COMMAND_PREFIX + "templates -   List templates";
         help += "\n";
-        help += PREFIX + "[template] -  Creates a new app";
+        help += COMMAND_PREFIX + "[template] -  Creates a new app";
         help += "```";
         help += "\n";
         help += "Parameters:";
@@ -130,9 +129,26 @@ function handle(message, author, channel) {
                     }
                 };
                 // Split message
-                let lines = message.substring(1).split("\n");
-                for (let l = 0; l < lines.length; l++) {
+                let matches = message.match(DICTIONARY_REGEX);
+                for (let l = 0; l < matches.length; l++) {
+                    let split = matches[l].split(":", 2);
+                    if (split.length > 1) {
+                        split[1] = split[1].replace("")
+                        if (split[0] === "name" ||
+                            split[0] === "description" ||
+                            split[0] === "color" ||
+                            split[0] === "layout" ||
+                            split[0] === "style") {
 
+                        } else if (split[0].endsWith("code")) {
+                            if (split[0] === "appcode") {
+
+                            } else if (split[0] === "loadcode") {
+
+                            }
+                        }
+                    }
+                    console.log(matches[l]);
                 }
                 // Send message
                 channel.send("Ok, creating app using " + template).then(progress => {
