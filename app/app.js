@@ -27,7 +27,7 @@ let templates = [];
  * Handle bot startup
  */
 client.on("ready", () => {
-    update();
+    setTimeout(update, 10 * 1000);
     setInterval(update, WEBAPPIFY_UPDATE_INTERVAL);
 });
 
