@@ -1,15 +1,15 @@
 // Requires
 const fs = require("fs");
-const temp = require("temp");
 const request = require("request");
 const {Client, RichEmbed} = require("discord.js");
 
 // Discord client initialization
 const client = new Client();
 
-// Webappify constants
+const WEBAPPIFY_URL = (process.env.URL || "https://webappify.org") + "/";
+const WEBAPPIFY_TOKEN = (process.env.TOKEN);
+
 const WEBAPPIFY_API = "webappify";
-const WEBAPPIFY_URL = "https://webappify.org/";
 const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
 const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
@@ -17,13 +17,10 @@ const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 const WEBAPPIFY_FOOTER_TEXT = "Webappify by Nadav Tasher";
 const WEBAPPIFY_FOOTER_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
 
-// AppBot
-const COMMAND_PREFIX = "::";
-const DICTIONARY_REGEX = /(.+:)((`([^`\n]+)`)|(\n|)(```([^`]+)```)|([^`\n]+))/g;
+const WEBAPPIFY_COMMAND_PREFIX = "::";
+const WEBAPPIFY_COMMAND_REGEX = /(.+:)([^\n]+)/g;
 
 let templates = [];
-
-temp.track();
 
 /**
  * Handle bot startup
@@ -42,15 +39,16 @@ client.on("ready", () => {
  */
 client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
-        if (receivedMessage.content.startsWith(COMMAND_PREFIX))
-            handle(receivedMessage.content.substring(COMMAND_PREFIX.length), receivedMessage.author, receivedMessage.channel);
+        if (receivedMessage.content.startsWith(WEBAPPIFY_COMMAND_PREFIX)) {
+            handle(receivedMessage.content.substring(WEBAPPIFY_COMMAND_PREFIX.length), receivedMessage.author, receivedMessage.channel);
+        }
     }
 });
 
 /**
  * Login to discord
  */
-client.login(fs.readFileSync("BotSecretToken", "utf8"));
+client.login(WEBAPPIFY_TOKEN);
 
 /**
  * This function handles commands.
@@ -65,11 +63,11 @@ function handle(message, author, channel) {
         help += "\n";
         help += "```";
         help += "\n";
-        help += COMMAND_PREFIX + "help -        Shows this message";
+        help += WEBAPPIFY_COMMAND_PREFIX + "help -        Shows this message";
         help += "\n";
-        help += COMMAND_PREFIX + "templates -   List templates";
+        help += WEBAPPIFY_COMMAND_PREFIX + "templates -   List templates";
         help += "\n";
-        help += COMMAND_PREFIX + "[template] -  Creates a new app";
+        help += WEBAPPIFY_COMMAND_PREFIX + "[template] -  Creates a new app";
         help += "```";
         help += "\n";
         help += "Parameters:";
@@ -86,9 +84,9 @@ function handle(message, author, channel) {
         help += "\n";
         help += "style -         CSS markup for the app's style";
         help += "\n";
-        help += "appcode -       JavaScript app code for the app";
+        help += "code -       JavaScript app code for the app";
         help += "\n";
-        help += "loadcode -      JavaScript load code for the app";
+        help += "load -      JavaScript load code for the app";
         help += "\n";
         help += "```";
         channel.send(help);
@@ -123,32 +121,24 @@ function handle(message, author, channel) {
                     color: "#FFFFFF",
                     layout: "",
                     style: "",
-                    code: {
-                        app: "",
-                        load: ""
-                    }
+                    code: "",
+                    load: ""
                 };
                 // Split message
-                let matches = message.match(DICTIONARY_REGEX);
-                for (let l = 0; l < matches.length; l++) {
-                    let split = matches[l].split(":", 2);
-                    if (split.length > 1) {
-                        split[1] = split[1].replace("")
-                        if (split[0] === "name" ||
-                            split[0] === "description" ||
-                            split[0] === "color" ||
-                            split[0] === "layout" ||
-                            split[0] === "style") {
-
-                        } else if (split[0].endsWith("code")) {
-                            if (split[0] === "appcode") {
-
-                            } else if (split[0] === "loadcode") {
-
+                let matches = message.match(WEBAPPIFY_COMMAND_REGEX);
+                if (matches !== null) {
+                    for (let l = 0; l < matches.length; l++) {
+                        let split = matches[l].split(":", 2);
+                        if (split.length > 1) {
+                            split[1] = filter(split[1]);
+                            split[1] = split[1].split("`").join("");
+                            split[1] = filter(split[1]);
+                            // Set the parameter
+                            if (split[0] in configuration) {
+                                configuration[split[0]] = split[1];
                             }
                         }
                     }
-                    console.log(matches[l]);
                 }
                 // Send message
                 channel.send("Ok, creating app using " + template).then(progress => {
@@ -186,6 +176,21 @@ function handle(message, author, channel) {
             }
         }
     }
+}
+
+/**
+ * This function removes trailing spaces from a string.
+ * @param string string The source string
+ * @return string The filtered string
+ */
+function filter(string) {
+    while (string[0] === " ") {
+        string = string.substring(1);
+    }
+    while (string[string.length - 1] === " ") {
+        string = string.substring(0, string.length - 1);
+    }
+    return string;
 }
 
 /**
@@ -251,30 +256,4 @@ function hook(api = null, action = null, parameters = null, APIs = {}) {
         }
     }
     return APIs;
-}
-
-function finish() {
-    api(WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-        flavor: get("flavor").value,
-        configuration: {
-            name: get("name-text").value,
-            description: get("description-text").value,
-            color: get("color-text").value,
-            layout: get("layout-text").value,
-            style: get("style-text").value,
-            code: {
-                app: get("code-app-text").value,
-                load: get("code-load-text").value
-            }
-        }
-    }, (success, result, error) => {
-        if (success) {
-            get("open").onclick = () => window.location = "../apps/" + result.id;
-            get("sources").onclick = () => save("WebAppBundle.zip", result.sources, "application/zip", "base64");
-            get("docker").onclick = () => save("WebAppDocker.zip", result.docker, "application/zip", "base64");
-            page("finish");
-        } else {
-            popup("An error occurred: " + error, 0, "#AA0000AA");
-        }
-    });
 }
