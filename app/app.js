@@ -59,24 +59,6 @@ client.login(fs.readFileSync("BotSecretToken", "utf8"));
  */
 function handle(message, author, channel) {
     if (message === "help") {
-        const embed = new RichEmbed()
-            .setColor(0x008080)
-            .setTitle("AppBot Help")
-            .setDescription("Here are some commands you can use:")
-            .addField(PREFIX + "help", "Shows this message")
-            .addField(PREFIX + "templates", "Lists templates")
-            .addField(PREFIX + "[template]", "Creates a new app based on [template]")
-            .addBlankField()
-            .addField("name", "App's name")
-            .addField("description", "App's description")
-            .addField("color", "App's theme color (in Hex)")
-            .addField("layout", "App's layout (in HTML)")
-            .addField("style", "App's style (in CSS)")
-            .addField("appcode", "App's app code (in JS)")
-            .addField("loadcode", "App's load code (in JS)")
-            .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
-        ;
-        channel.send(embed);
         let help = "";
         help += "**AppBot** / Webappify.org";
         help += "\n";
