@@ -1,8 +1,8 @@
 // Requires
-const fs = require('fs');
-const temp = require('temp');
-const request = require('request');
-const {Client, RichEmbed} = require('discord.js');
+const fs = require("fs");
+const temp = require("temp");
+const request = require("request");
+const {Client, RichEmbed} = require("discord.js");
 
 // Discord client initialization
 const client = new Client();
@@ -14,6 +14,9 @@ const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
 const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
+const WEBAPPIFY_FOOTER_TEXT = "Webappify by Nadav Tasher";
+const WEBAPPIFY_FOOTER_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
+
 // AppBot
 const PREFIX = "::";
 
@@ -24,7 +27,7 @@ temp.track();
 /**
  * Handle bot startup
  */
-client.on('ready', () => {
+client.on("ready", () => {
     api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
         if (success)
             templates = result;
@@ -36,7 +39,7 @@ client.on('ready', () => {
 /**
  * Handle an incoming message
  */
-client.on('message', (receivedMessage) => {
+client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
         if (receivedMessage.content.startsWith(PREFIX))
             handle(receivedMessage.content.substring(PREFIX.length), receivedMessage.author, receivedMessage.channel);
@@ -46,7 +49,7 @@ client.on('message', (receivedMessage) => {
 /**
  * Login to discord
  */
-client.login(fs.readFileSync('BotSecretToken', 'utf8'));
+client.login(fs.readFileSync("BotSecretToken", "utf8"));
 
 /**
  * This function handles commands.
@@ -58,10 +61,20 @@ function handle(message, author, channel) {
     if (message === "help") {
         const embed = new RichEmbed()
             .setColor(0x008080)
-            .setTitle('AppBot Help')
-            .setDescription('Here are some commands you can use:')
-            .addField('Requested by', author.username)
-            .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
+            .setTitle("AppBot Help")
+            .setDescription("Here are some commands you can use:")
+            .addField(PREFIX + "help", "Shows this message")
+            .addField(PREFIX + "templates", "Lists templates")
+            .addField(PREFIX + "[template]", "Creates a new app based on [template]")
+            .addBlankField()
+            .addField("name", "App's name")
+            .addField("description", "App's description")
+            .addField("color", "App's theme color (in Hex)")
+            .addField("layout", "App's layout (in HTML)")
+            .addField("style", "App's style (in CSS)")
+            .addField("appcode", "App's app code (in JS)")
+            .addField("loadcode", "App's load code (in JS)")
+            .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
         ;
         channel.send(embed);
         let help = "";
@@ -98,82 +111,80 @@ function handle(message, author, channel) {
         help += "\n";
         help += "```";
         channel.send(help);
+    } else if (message === "templates") {
+        let text = "Templates:\n```";
+        for (let t = 0; t < templates.length; t++) {
+            // Filter template name
+            text += "\n" + templates[t].toLowerCase().replace("template", "");
+        }
+        text += "\n```";
+        channel.send(text);
     } else {
-        if (message === "templates") {
-            let text = "Templates:\n```";
-            for (let t = 0; t < templates.length; t++) {
+        if (templates.length > 0) {
+            // Loop through templates
+            let template = null;
+            for (let t = 0; t < templates.length && template === null; t++) {
                 // Filter template name
-                text += "\n" + templates[t].toLowerCase().replace("template", "");
-            }
-            text += "\n```";
-            channel.send(text);
-        } else {
-            if (templates.length > 0) {
-                // Loop through templates
-                let template = null;
-                for (let t = 0; t < templates.length && template === null; t++) {
-                    // Filter template name
-                    let filtered = templates[t].toLowerCase().replace("template", "");
-                    // Check whether message matches the regex
-                    if (message.startsWith(filtered)) {
-                        // Clear message of template
-                        message = message.substring(filtered.length);
-                        // Set template
-                        template = templates[t];
-                    }
+                let filtered = templates[t].toLowerCase().replace("template", "");
+                // Check whether message matches the regex
+                if (message.startsWith(filtered)) {
+                    // Clear message of template
+                    message = message.substring(filtered.length);
+                    // Set template
+                    template = templates[t];
                 }
-                if (template !== null) {
-                    // Parse input
-                    let configuration = {
-                        name: "AppName",
-                        description: "AppDescription",
-                        color: "#FFFFFF",
-                        layout: "",
-                        style: "",
-                        code: {
-                            app: "",
-                            load: ""
-                        }
-                    };
-                    // Split message
-                    let lines = message.substring(1).split("\n");
-                    for (let l = 0; l < lines.length; l++) {
-
+            }
+            if (template !== null) {
+                // Parse input
+                let configuration = {
+                    name: "AppName",
+                    description: "AppDescription",
+                    color: "#FFFFFF",
+                    layout: "",
+                    style: "",
+                    code: {
+                        app: "",
+                        load: ""
                     }
-                    // Send message
-                    channel.send("Ok, creating app using " + template).then(progress => {
-                        try {
-                            // Request app generation
-                            api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-                                flavor: template,
-                                configuration: configuration
-                            }, (success, result) => {
-                                // Delete progress message
-                                progress.delete();
-                                if (success) {
-                                    // Send app
-                                    const embed = new RichEmbed()
-                                        .setColor(0x008080)
-                                        .setTitle('AppBot application')
-                                        .setDescription("You application, based on '" + template + "', is ready.")
-                                        .setURL(WEBAPPIFY_URL_APPS + result.id)
-                                        .addField('Requested by', author.username)
-                                        .setFooter('Webappify by Nadav Tasher', 'https://avatars3.githubusercontent.com/u/22955993')
-                                    ;
-                                    channel.send(embed);
-                                } else {
-                                    // Display error
-                                    channel.send("oops, an error occurred!");
-                                }
-                            });
-                        } catch (e) {
+                };
+                // Split message
+                let lines = message.substring(1).split("\n");
+                for (let l = 0; l < lines.length; l++) {
+
+                }
+                // Send message
+                channel.send("Ok, creating app using " + template).then(progress => {
+                    try {
+                        // Request app generation
+                        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
+                            flavor: template,
+                            configuration: configuration
+                        }, (success, result) => {
                             // Delete progress message
                             progress.delete();
-                            // Display error
-                            channel.send("oops, it looks like this isn't the correct syntax!");
-                        }
-                    });
-                }
+                            if (success) {
+                                // Send app
+                                const embed = new RichEmbed()
+                                    .setColor(0x008080)
+                                    .setTitle("AppBot application")
+                                    .setDescription("You application, based on '" + template + "', is ready.")
+                                    .setURL(WEBAPPIFY_URL_APPS + result.id)
+                                    .addField("Requested by", author.username)
+                                    .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
+                                ;
+                                channel.send(embed);
+                            } else {
+                                // Display error
+                                channel.send("oops, an error occurred!");
+                            }
+                        });
+                    } catch (e) {
+                        // Delete progress message
+                        progress.delete();
+                        // Display error
+                        channel.send("oops, it looks like this isn't the correct syntax!");
+                    }
+                });
             }
         }
     }
