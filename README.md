@@ -4,7 +4,7 @@ AppBot is a [Discord](https://discordapp.com) bot that interfaces with [Webappif
 
 ## Inviting AppBot
 
-If you want to invite AppBot to your server, click [here](https://discordapp.com/oauth2/authorize?client_id=656177472525828117&scope=bot).
+If you want to invite AppBot to your server, click [here](https://discordapp.com/api/oauth2/authorize?client_id=656177472525828117&permissions=2048&scope=bot).
 
 ## Installation
 ### Method 1: Using the Docker Hub repository
