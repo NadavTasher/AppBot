@@ -19,6 +19,7 @@ const WEBAPPIFY_FOOTER_IMAGE = "https://avatars3.githubusercontent.com/u/2295599
 
 const WEBAPPIFY_COMMAND_PREFIX = "::";
 const WEBAPPIFY_COMMAND_REGEX = /(.+:)([^\n]+)/g;
+const WEBAPPIFY_UPDATE_INTERVAL = 1000 * 60 * 60;
 
 let templates = [];
 
@@ -26,12 +27,8 @@ let templates = [];
  * Handle bot startup
  */
 client.on("ready", () => {
-    api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
-        if (success)
-            templates = result;
-        else
-            console.error(result);
-    });
+    update();
+    setInterval(update, WEBAPPIFY_UPDATE_INTERVAL);
 });
 
 /**
@@ -49,6 +46,12 @@ client.on("message", (receivedMessage) => {
  * Login to discord
  */
 client.login(WEBAPPIFY_TOKEN);
+
+/**
+ * Handle interrupts
+ */
+process.on("SIGINT", process.exit);
+process.on("SIGTERM", process.exit);
 
 /**
  * This function handles commands.
@@ -191,6 +194,18 @@ function filter(string) {
         string = string.substring(0, string.length - 1);
     }
     return string;
+}
+
+/**
+ * This function updates the template list.
+ */
+function update() {
+    api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
+        if (success)
+            templates = result;
+        else
+            console.error(result);
+    });
 }
 
 /**
