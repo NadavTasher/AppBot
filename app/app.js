@@ -87,9 +87,9 @@ function handle(message, author, channel) {
         help += "\n";
         help += "style -         CSS markup for the app's style";
         help += "\n";
-        help += "code -       JavaScript app code for the app";
+        help += "code -          JavaScript app code for the app";
         help += "\n";
-        help += "load -      JavaScript load code for the app";
+        help += "load -          JavaScript load code for the app";
         help += "\n";
         help += "```";
         channel.send(help);
