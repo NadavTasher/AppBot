@@ -7,7 +7,7 @@ const {Client, RichEmbed} = require("discord.js");
 const client = new Client();
 
 const WEBAPPIFY_URL = (process.env.URL || "https://webappify.org") + "/";
-const WEBAPPIFY_TOKEN = (process.env.TOKEN);
+const WEBAPPIFY_TOKEN = (process.env.TOKEN || fs.readFileSync("Token.txt").toString());
 
 const WEBAPPIFY_API = "webappify";
 const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
@@ -23,44 +23,12 @@ const WEBAPPIFY_UPDATE_INTERVAL = 1000 * 60 * 60;
 
 let templates = [];
 
-/**
- * Handle bot startup
- */
-client.on("ready", () => {
-    setTimeout(update, 10 * 1000);
-    setInterval(update, WEBAPPIFY_UPDATE_INTERVAL);
-});
+let sessions = [];
 
-/**
- * Handle an incoming message
- */
-client.on("message", (receivedMessage) => {
-    if (receivedMessage.author !== client.user) {
-        if (receivedMessage.content.startsWith(WEBAPPIFY_COMMAND_PREFIX)) {
-            handle(receivedMessage.content.substring(WEBAPPIFY_COMMAND_PREFIX.length), receivedMessage.author, receivedMessage.channel);
-        }
-    }
-});
-
-/**
- * Login to discord
- */
-client.login(WEBAPPIFY_TOKEN);
-
-/**
- * Handle interrupts
- */
-process.on("SIGINT", process.exit);
-process.on("SIGTERM", process.exit);
-
-/**
- * This function handles commands.
- * @param message Text
- * @param author Author
- * @param channel Channel
- */
-function handle(message, author, channel) {
-    if (message === "help") {
+const COMMANDS = {
+    "": () => {
+    },
+    "help": () => {
         let help = "";
         help += "Commands:";
         help += "\n";
@@ -92,16 +60,18 @@ function handle(message, author, channel) {
         help += "load -          JavaScript load code for the app";
         help += "\n";
         help += "```";
-        channel.send(help);
-    } else if (message === "templates") {
+        return help;
+    },
+    "templates": () => {
         let text = "Templates:\n```";
         for (let t = 0; t < templates.length; t++) {
             // Filter template name
             text += "\n" + templates[t].toLowerCase().replace("template", "");
         }
         text += "\n```";
-        channel.send(text);
-    } else {
+        return text;
+    },
+    "create": (message, author, channel) => {
         if (templates.length > 0) {
             // Loop through templates
             let template = null;
@@ -144,42 +114,69 @@ function handle(message, author, channel) {
                     }
                 }
                 // Send message
-                channel.send("Ok, creating app using " + template).then(progress => {
-                    try {
-                        // Request app generation
-                        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-                            flavor: template,
-                            configuration: configuration
-                        }, (success, result) => {
-                            // Delete progress message
-                            progress.delete();
-                            if (success) {
-                                // Send app
-                                const embed = new RichEmbed()
-                                    .setColor(0x008080)
-                                    .setTitle("AppBot application")
-                                    .setDescription("You application, based on '" + template + "', is ready.")
-                                    .setURL(WEBAPPIFY_URL_APPS + result.id)
-                                    .addField("Requested by", author.username)
-                                    .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
-                                ;
-                                channel.send(embed);
-                            } else {
-                                // Display error
-                                channel.send("oops, an error occurred!");
-                            }
-                        });
-                    } catch (e) {
-                        // Delete progress message
-                        progress.delete();
+                api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
+                    flavor: template,
+                    configuration: configuration
+                }, (success, result) => {
+                    if (success) {
+                        // Send app
+                        const embed = new RichEmbed()
+                            .setColor(0x008080)
+                            .setTitle("AppBot application")
+                            .setDescription("You application, based on '" + template + "', is ready.")
+                            .setURL(WEBAPPIFY_URL_APPS + result.id)
+                            .addField("Requested by", author.username)
+                            .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
+                        ;
+                        channel.send(embed);
+                    } else {
                         // Display error
-                        channel.send("oops, it looks like this isn't the correct syntax!");
+                        return channel.send("oops, error!");
                     }
                 });
             }
         }
     }
-}
+};
+
+/**
+ * Handle bot startup
+ */
+client.on("ready", () => {
+    setTimeout(update, 10 * 1000);
+    setInterval(update, WEBAPPIFY_UPDATE_INTERVAL);
+});
+
+/**
+ * Handle an incoming message
+ */
+client.on("message", (receivedMessage) => {
+    if (receivedMessage.author !== client.user) {
+        if (receivedMessage.content.startsWith(WEBAPPIFY_COMMAND_PREFIX)) {
+            let split = receivedMessage.content.substring(WEBAPPIFY_COMMAND_PREFIX.length).split("\s", 2);
+            let command = split[0];
+            if (command in COMMANDS) {
+                let result = COMMANDS[command](split[1], receivedMessage.author, receivedMessage.channel);
+                if (result !== undefined && result !== null) {
+                    receivedMessage.channel.send(result);
+                }
+            } else {
+                receivedMessage.channel.send("No such command :(");
+            }
+        }
+    }
+});
+
+/**
+ * Login to discord
+ */
+client.login(WEBAPPIFY_TOKEN);
+
+/**
+ * Handle interrupts
+ */
+process.on("SIGINT", process.exit);
+process.on("SIGTERM", process.exit);
 
 /**
  * This function removes trailing spaces from a string.
