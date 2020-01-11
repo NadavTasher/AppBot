@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2019 Nadav Tasher
+ * https://github.com/NadavTasher/AppBot/
+ * https://github.com/NadavTasher/Webappify/
+ **/
+
 // Requires
 const fs = require("fs");
 const request = require("request");
@@ -7,135 +13,157 @@ const {Client, RichEmbed} = require("discord.js");
 const client = new Client();
 
 const WEBAPPIFY_URL = (process.env.URL || "https://webappify.org") + "/";
-const WEBAPPIFY_TOKEN = (process.env.TOKEN || fs.readFileSync("Token.txt").toString());
+const WEBAPPIFY_TOKEN = (process.env.TOKEN);
 
 const WEBAPPIFY_API = "webappify";
 const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
 const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
 const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
-const WEBAPPIFY_FOOTER_TEXT = "Webappify by Nadav Tasher";
-const WEBAPPIFY_FOOTER_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
+const WEBAPPIFY_AUTHOR_NAME = "Nadav Tasher";
+const WEBAPPIFY_AUTHOR_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
+const WEBAPPIFY_AUTHOR_URL = "https://github.com/NadavTasher";
 
-const WEBAPPIFY_COMMAND_PREFIX = "::";
-const WEBAPPIFY_COMMAND_REGEX = /(.+:)([^\n]+)/g;
+const WEBAPPIFY_FOOTER_TEXT = "Webappify by " + WEBAPPIFY_AUTHOR_NAME;
+const WEBAPPIFY_FOOTER_IMAGE = WEBAPPIFY_AUTHOR_IMAGE;
+
+const WEBAPPIFY_PREFIX = "::";
+
 const WEBAPPIFY_UPDATE_INTERVAL = 1000 * 60 * 60;
 
 let templates = [];
 
-let sessions = [];
+let sessions = {};
 
 const COMMANDS = {
-    "": () => {
-    },
     "help": () => {
-        let help = "";
-        help += "Commands:";
-        help += "\n";
-        help += "```";
-        help += "\n";
-        help += WEBAPPIFY_COMMAND_PREFIX + "help -        Shows this message";
-        help += "\n";
-        help += WEBAPPIFY_COMMAND_PREFIX + "templates -   Lists templates";
-        help += "\n";
-        help += WEBAPPIFY_COMMAND_PREFIX + "[template] -  Creates a new app";
-        help += "```";
-        help += "\n";
-        help += "Parameters:";
-        help += "\n";
-        help += "```";
-        help += "\n";
-        help += "name -          The app's name";
-        help += "\n";
-        help += "description -   The app's description";
-        help += "\n";
-        help += "color -         The app's theme color (in #hexdec)";
-        help += "\n";
-        help += "layout -        HTML markup for the app's layout";
-        help += "\n";
-        help += "style -         CSS markup for the app's style";
-        help += "\n";
-        help += "code -          JavaScript app code for the app";
-        help += "\n";
-        help += "load -          JavaScript load code for the app";
-        help += "\n";
-        help += "```";
-        return help;
-    },
-    "templates": () => {
-        let text = "Templates:\n```";
-        for (let t = 0; t < templates.length; t++) {
-            // Filter template name
-            text += "\n" + templates[t].toLowerCase().replace("template", "");
-        }
-        text += "\n```";
-        return text;
-    },
-    "create": (message, author, channel) => {
+        const embed = new RichEmbed()
+            .setColor(0x008080)
+            .setTitle("AppBot Help")
+            .addField(`${WEBAPPIFY_PREFIX}help`, "Show this message", false)
+            .addField(`${WEBAPPIFY_PREFIX}finish`, "Finish and build app", true)
+            .addField(`${WEBAPPIFY_PREFIX}cancel`, "Cancel app", true)
+            .addField(`${WEBAPPIFY_PREFIX}template [template]`, "Change app template", true)
+            .addField(`${WEBAPPIFY_PREFIX}name [name]`, "Change app's name", true)
+            .addField(`${WEBAPPIFY_PREFIX}description [description]`, "Change app's description", true)
+            .addField(`${WEBAPPIFY_PREFIX}color [color]`, "Change app's color", true)
+            .addField(`${WEBAPPIFY_PREFIX}layout [layout]`, "Change app's layout", true)
+            .addField(`${WEBAPPIFY_PREFIX}style [style]`, "Change app's style", true)
+            .addField(`${WEBAPPIFY_PREFIX}code [code]`, "Change app's code", true)
+            .addField(`${WEBAPPIFY_PREFIX}load [load]`, "Change app's load", true)
+            .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
+        ;
         if (templates.length > 0) {
-            // Loop through templates
-            let template = null;
-            for (let t = 0; t < templates.length && template === null; t++) {
-                // Filter template name
-                let filtered = templates[t].toLowerCase().replace("template", "");
-                // Check whether message matches the regex
-                if (message.startsWith(filtered)) {
-                    // Clear message of template
-                    message = message.substring(filtered.length);
-                    // Set template
-                    template = templates[t];
-                }
-            }
-            if (template !== null) {
-                // Parse input
-                let configuration = {
-                    name: "AppName",
-                    description: "AppDescription",
-                    color: "#FFFFFF",
-                    layout: "",
-                    style: "",
-                    code: "",
-                    load: ""
-                };
-                // Split message
-                let matches = message.match(WEBAPPIFY_COMMAND_REGEX);
-                if (matches !== null) {
-                    for (let l = 0; l < matches.length; l++) {
-                        let split = matches[l].split(":", 2);
-                        if (split.length > 1) {
-                            split[1] = filter(split[1]);
-                            split[1] = split[1].split("`").join("");
-                            split[1] = filter(split[1]);
-                            // Set the parameter
-                            if (split[0] in configuration) {
-                                configuration[split[0]] = split[1];
-                            }
-                        }
-                    }
-                }
-                // Send message
-                api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", {
-                    flavor: template,
-                    configuration: configuration
-                }, (success, result) => {
-                    if (success) {
-                        // Send app
-                        const embed = new RichEmbed()
-                            .setColor(0x008080)
-                            .setTitle("AppBot application")
-                            .setDescription("You application, based on '" + template + "', is ready.")
-                            .setURL(WEBAPPIFY_URL_APPS + result.id)
-                            .addField("Requested by", author.username)
-                            .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
-                        ;
-                        channel.send(embed);
-                    } else {
-                        // Display error
-                        return channel.send("oops, error!");
-                    }
-                });
+            embed.addBlankField(false);
+            embed.addField("Templates", templates.join("\n"));
+        }
+        return embed;
+    },
+    "template": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        for (let template of templates) {
+            if (template.toLowerCase().startsWith(message.toLowerCase())) {
+                session_get(channel).app.flavor = template;
+                return "Template chosen: `" + template + "`.";
             }
         }
+        return "No such template.";
+    },
+    "name": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.name = message;
+        return "Name updated.";
+    },
+    "description": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.description = message;
+        return "Description updated.";
+    },
+    "color": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.color = message;
+        return "Color updated.";
+    },
+    "layout": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.layout = message;
+        return "Layout updated.";
+    },
+    "style": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.style = message;
+        return "Style updated.";
+    },
+    "code": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.code = message;
+        return "Code updated.";
+    },
+    "load": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        session_get(channel).app.configuration.load = message;
+        return "Load updated.";
+    },
+    "finish": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            session_create(channel);
+        }
+        session_update(channel, author);
+        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", session_get(channel).app, (success, result) => {
+            if (success) {
+                session_update(channel, author);
+                let authors = "";
+                for (let author of session_get(channel).participants) {
+                    if (authors.length > 0)
+                        authors += ", ";
+                    authors += author.username;
+                }
+                const embed = new RichEmbed()
+                    .setColor(0x008080)
+                    .setTitle("AppBot Application")
+                    .setDescription("You application is ready!")
+                    .setURL(WEBAPPIFY_URL_APPS + result.id)
+                    .addField("Requested by", authors)
+                    .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
+                ;
+                channel.send(embed);
+                session_end(channel);
+            } else {
+                // Display error
+                channel.send(result + ".");
+            }
+        });
+    },
+    "cancel": (message, author, channel) => {
+        if (!session_exists(channel)) {
+            return "Nothing to cancel.";
+        }
+        session_end(channel);
+        return "App canceled.";
     }
 };
 
@@ -152,8 +180,8 @@ client.on("ready", () => {
  */
 client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
-        if (receivedMessage.content.startsWith(WEBAPPIFY_COMMAND_PREFIX)) {
-            let split = receivedMessage.content.substring(WEBAPPIFY_COMMAND_PREFIX.length).split("\s", 2);
+        if (receivedMessage.content.startsWith(WEBAPPIFY_PREFIX)) {
+            let split = receivedMessage.content.substring(WEBAPPIFY_PREFIX.length).split(/\s/, 2);
             let command = split[0];
             if (command in COMMANDS) {
                 let result = COMMANDS[command](split[1], receivedMessage.author, receivedMessage.channel);
@@ -161,7 +189,7 @@ client.on("message", (receivedMessage) => {
                     receivedMessage.channel.send(result);
                 }
             } else {
-                receivedMessage.channel.send("No such command :(");
+                receivedMessage.channel.send("No such command.");
             }
         }
     }
@@ -179,22 +207,92 @@ process.on("SIGINT", process.exit);
 process.on("SIGTERM", process.exit);
 
 /**
- * This function removes trailing spaces from a string.
- * @param string string The source string
- * @return string The filtered string
+ * Creates a new session for the specific channel.
+ * @param channel Channel
+ * @return {boolean} Success
  */
-function filter(string) {
-    while (string[0] === " ") {
-        string = string.substring(1);
+function session_create(channel) {
+    if (!session_exists(channel)) {
+        session_set(channel, {
+            participants: [],
+            app: {
+                flavor: templates[0],
+                configuration: {
+                    name: "AppName",
+                    description: "AppDescription",
+                    color: "#FFFFFF",
+                    layout: "",
+                    style: "",
+                    code: "",
+                    load: ""
+                }
+            }
+        });
+        return true;
     }
-    while (string[string.length - 1] === " ") {
-        string = string.substring(0, string.length - 1);
-    }
-    return string;
+    return false;
 }
 
 /**
- * This function updates the template list.
+ * Updates the session's participants.
+ * @param channel Channel
+ * @param author Author
+ * @return {boolean} Success
+ */
+function session_update(channel, author) {
+    if (session_exists(channel)) {
+        if (!session_get(channel).participants.includes(author)) {
+            session_get(channel).participants.push(author);
+        }
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Ends a session.
+ * @param channel Channel
+ * @return {boolean} Success
+ */
+function session_end(channel) {
+    if (session_exists(channel)) {
+        delete sessions[channel.id];
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Checks if a session exists.
+ * @param channel Channel
+ * @return {boolean} Exists?
+ */
+function session_exists(channel) {
+    return channel.id in sessions;
+}
+
+/**
+ * Returns the session.
+ * @param channel Channel
+ * @return {object} Session
+ */
+function session_get(channel) {
+    return sessions[channel.id];
+}
+
+/**
+ * Sets the session.
+ * @param channel Channel
+ * @param {object} session Session
+ * @return {boolean} Success
+ */
+function session_set(channel, session) {
+    sessions[channel.id] = session;
+    return true;
+}
+
+/**
+ * Updates the template list.
  */
 function update() {
     api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
@@ -206,7 +304,7 @@ function update() {
 }
 
 /**
- * This function is responsible for API calls between the frontend and the backend.
+ * Responsible for API calls between the frontend and the backend.
  * @param endpoint The backend PHP file to be reached
  * @param api The API which this call associates with
  * @param action The action to be executed
@@ -251,7 +349,7 @@ function api(endpoint = null, api = null, action = null, parameters = null, call
 }
 
 /**
- * This function compiles the API call hook.
+ * Compiles the API call hook.
  * @param api The API to associate
  * @param action The action to be executed
  * @param parameters The parameters for the action
