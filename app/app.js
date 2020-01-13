@@ -182,9 +182,8 @@ client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
         if (receivedMessage.content.startsWith(WEBAPPIFY_PREFIX)) {
             let content = receivedMessage.content.substring(WEBAPPIFY_PREFIX.length);
-            let split = content.split(" ", 1);
-            let command = split[0];
-            let message = command.substr(command.length + 1);
+            let command = content.split(" ", 1)[0];
+            let message = content.substr(command.length + 1);
             if (command in COMMANDS) {
                 let result = COMMANDS[command](message, receivedMessage.author, receivedMessage.channel);
                 if (result !== undefined && result !== null) {
