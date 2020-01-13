@@ -181,10 +181,12 @@ client.on("ready", () => {
 client.on("message", (receivedMessage) => {
     if (receivedMessage.author !== client.user) {
         if (receivedMessage.content.startsWith(WEBAPPIFY_PREFIX)) {
-            let split = receivedMessage.content.substring(WEBAPPIFY_PREFIX.length).split(/\s/, 2);
+            let content = receivedMessage.content.substring(WEBAPPIFY_PREFIX.length);
+            let split = content.split(" ", 1);
             let command = split[0];
+            let message = command.substr(command.length + 1);
             if (command in COMMANDS) {
-                let result = COMMANDS[command](split[1], receivedMessage.author, receivedMessage.channel);
+                let result = COMMANDS[command](message, receivedMessage.author, receivedMessage.channel);
                 if (result !== undefined && result !== null) {
                     receivedMessage.channel.send(result);
                 }
