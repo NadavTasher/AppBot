@@ -1,7 +1,7 @@
 {
   "name": "appbot",
   "description": "AppBot is a Discord bot that interfaces with Webappify to quickly create web applications.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
