@@ -5,7 +5,6 @@
  **/
 
 // Requires
-const fs = require("fs");
 const request = require("request");
 const {Client, RichEmbed} = require("discord.js");
 
@@ -18,7 +17,6 @@ const WEBAPPIFY_TOKEN = (process.env.TOKEN);
 const WEBAPPIFY_API = "webappify";
 const WEBAPPIFY_URL_HOME = WEBAPPIFY_URL + "home/";
 const WEBAPPIFY_URL_APPS = WEBAPPIFY_URL + "apps/";
-const WEBAPPIFY_ENDPOINT = "scripts/backend/webappify/webappify.php";
 
 const WEBAPPIFY_AUTHOR_NAME = "Nadav Tasher";
 const WEBAPPIFY_AUTHOR_IMAGE = "https://avatars3.githubusercontent.com/u/22955993";
@@ -133,7 +131,7 @@ const COMMANDS = {
             session_create(channel);
         }
         session_update(channel, author);
-        api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "create", session_get(channel).app, (success, result) => {
+        API.send(WEBAPPIFY_API, "create", session_get(channel).app, (success, result) => {
             if (success) {
                 session_update(channel, author);
                 let authors = "";
@@ -296,7 +294,7 @@ function session_set(channel, session) {
  * Updates the template list.
  */
 function update() {
-    api(WEBAPPIFY_URL_HOME + WEBAPPIFY_ENDPOINT, WEBAPPIFY_API, "list", {}, (success, result) => {
+    API.send(WEBAPPIFY_API, "list", {}, (success, result) => {
         if (success)
             templates = result;
         else
@@ -305,66 +303,84 @@ function update() {
 }
 
 /**
- * Responsible for API calls between the frontend and the backend.
- * @param endpoint The backend PHP file to be reached
- * @param api The API which this call associates with
- * @param action The action to be executed
- * @param parameters The parameters for the action
- * @param callback The callback for the API call, contains success, result and error
- * @param APIs The API parameters for the API call (for API layering)
+ * Base API for sending requests.
  */
-function api(endpoint = null, api = null, action = null, parameters = null, callback = null, APIs = {}) {
-    request.post({
-        url: endpoint,
-        form: {
-            api: JSON.stringify(hook(api, action, parameters, APIs))
-        }
-    }, function (error, httpResponse, result) {
-        if (error && callback !== null) {
-            callback(false, error);
-        } else {
-            if (callback !== null && api !== null && action !== null) {
-                try {
-                    let json = JSON.parse(result);
+class API {
+    /**
+     * Sends an API call.
+     * @param api API to call
+     * @param action API action
+     * @param parameters API action parameters
+     * @param callback API result callback
+     * @param APIs API list for API layering
+     */
+    static send(api = null, action = null, parameters = null, callback = null, APIs = {}) {
+        // Perform the request
+        request.post({
+            url: WEBAPPIFY_URL_HOME + "apis/" + api + "/",
+            form: {
+                api: JSON.stringify(API.hook(api, action, parameters, APIs))
+            }
+        }, function (error, response, result) {
+            if (error && callback !== null) {
+                // Call the callback with an error
+                callback(false, error);
+            } else {
+                // Make sure the callback exists and that the api and action aren't null
+                if (callback !== null && api !== null && action !== null) {
                     try {
-                        if (api in json) {
-                            if ("success" in json[api] && "result" in json[api]) {
-                                callback(json[api]["success"] === true, json[api]["result"]);
+                        // Try to parse the result as JSON
+                        let json = JSON.parse(result);
+                        try {
+                            // Make sure the requested API exists in the result
+                            if (api in json) {
+                                // Check the result's integrity
+                                if ("success" in json[api] && "result" in json[api]) {
+                                    // Call the callback with the result
+                                    callback(json[api]["success"] === true, json[api]["result"]);
+                                } else {
+                                    // Call the callback with an error
+                                    callback(false, "API parameters not found");
+                                }
                             } else {
-                                callback(false, "API parameters not found");
+                                // Call the callback with an error
+                                callback(false, "API not found");
                             }
-                        } else {
-                            callback(false, "API not found");
+                        } catch (e) {
                         }
                     } catch (e) {
-                    }
-                } catch (e) {
-                    try {
-                        callback(false, "API result isn't JSON");
-                    } catch (e) {
+                        try {
+                            // Call the callback with an error
+                            callback(false, "API result isn't JSON");
+                        } catch (e) {
+                        }
                     }
                 }
             }
-        }
-    });
-}
-
-/**
- * Compiles the API call hook.
- * @param api The API to associate
- * @param action The action to be executed
- * @param parameters The parameters for the action
- * @param APIs The API parameters for the API call (for API layering)
- * @returns {FormData} API call hook
- */
-function hook(api = null, action = null, parameters = null, APIs = {}) {
-    if (!(api in APIs)) {
-        if (api !== null && action !== null && parameters !== null) {
-            APIs[api] = {
-                action: action,
-                parameters: parameters
-            };
-        }
+        });
     }
-    return APIs;
+
+    /**
+     * Compiles an API call hook.
+     * @param api The API to associate
+     * @param action The action to be executed
+     * @param parameters The parameters for the action
+     * @param APIs The API parameters for the API call (for API layering)
+     * @returns {FormData} API call hook
+     */
+    static hook(api = null, action = null, parameters = null, APIs = {}) {
+        // Make sure the API isn't already compiled in the API list
+        if (!(api in APIs)) {
+            // Make sure none are null
+            if (api !== null && action !== null && parameters !== null) {
+                // Compile API
+                APIs[api] = {
+                    action: action,
+                    parameters: parameters
+                };
+            }
+        }
+        // Return updated API list
+        return APIs;
+    }
 }
