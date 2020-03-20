@@ -144,7 +144,7 @@ const COMMANDS = {
                     .setColor(0x008080)
                     .setTitle("AppBot Application")
                     .setDescription("You application is ready!")
-                    .setURL(WEBAPPIFY_URL_APPS + result.id)
+                    .setURL(WEBAPPIFY_URL_APPS + result.id + "/src/")
                     .addField("Requested by", authors)
                     .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
                 ;
