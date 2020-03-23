@@ -5,8 +5,8 @@
  **/
 
 // Requires
-const request = require("request");
-const {Client, RichEmbed} = require("discord.js");
+const https = require("https");
+const {Client, MessageEmbed, MessageAttachment} = require("discord.js");
 
 // Discord client initialization
 const client = new Client();
@@ -35,7 +35,7 @@ let sessions = {};
 
 const COMMANDS = {
     "help": () => {
-        const embed = new RichEmbed()
+        const embed = new MessageEmbed()
             .setColor(0x008080)
             .setTitle("AppBot Help")
             .addField(`${WEBAPPIFY_PREFIX}help`, "Show this message", false)
@@ -57,90 +57,55 @@ const COMMANDS = {
         }
         return embed;
     },
-    "template": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
+    "template": (text, message) => {
+        let session = session_touch(message);
         for (let template of templates) {
-            if (template.toLowerCase().startsWith(message.toLowerCase())) {
-                session_get(channel).app.flavor = template;
-                return "Template chosen: `" + template + "`.";
+            if (template.toLowerCase().startsWith(text.toLowerCase())) {
+                session.app.flavor = template;
+                return true;
             }
         }
-        return "No such template.";
+        return false;
     },
-    "name": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.name = message;
-        return "Name updated.";
+    "name": (text, message) => {
+        session_touch(message).app.configuration.name = text;
+        return true;
     },
-    "description": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.description = message;
-        return "Description updated.";
+    "description": (text, message) => {
+        session_touch(message).app.configuration.description = text;
+        return true;
     },
-    "color": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.color = message;
-        return "Color updated.";
+    "color": (text, message) => {
+        session_touch(message).app.configuration.color = text;
+        return true;
     },
-    "layout": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.layout = message;
-        return "Layout updated.";
+    "layout": (text, message) => {
+        session_touch(message).app.configuration.layout = text;
+        return true;
     },
-    "style": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.style = message;
-        return "Style updated.";
+    "style": (text, message) => {
+        session_touch(message).app.configuration.style = text;
+        return true;
     },
-    "code": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.code = message;
-        return "Code updated.";
+    "code": (text, message) => {
+        session_touch(message).app.configuration.code = text;
+        return true;
     },
-    "load": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        session_get(channel).app.configuration.load = message;
-        return "Load updated.";
+    "load": (text, message) => {
+        session_touch(message).app.configuration.load = text;
+        return true;
     },
-    "finish": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            session_create(channel);
-        }
-        session_update(channel, author);
-        API.send(WEBAPPIFY_API, "create", session_get(channel).app, (success, result) => {
+    "finish": (text, message) => {
+        session_touch(message);
+        API.send(WEBAPPIFY_API, "create", session_get(message.channel).app, (success, result) => {
             if (success) {
-                session_update(channel, author);
                 let authors = "";
-                for (let author of session_get(channel).participants) {
+                for (let author of session_get(message.channel).participants) {
                     if (authors.length > 0)
                         authors += ", ";
                     authors += author.username;
                 }
-                const embed = new RichEmbed()
+                const embed = new MessageEmbed()
                     .setColor(0x008080)
                     .setTitle("AppBot Application")
                     .setDescription("You application is ready!")
@@ -148,20 +113,18 @@ const COMMANDS = {
                     .addField("Requested by", authors)
                     .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
                 ;
-                channel.send(embed);
-                session_end(channel);
-            } else {
-                // Display error
-                channel.send(result + ".");
+                message.channel.send(embed);
+                session_end(message.channel);
             }
         });
+        return true;
     },
-    "cancel": (message, author, channel) => {
-        if (!session_exists(channel)) {
-            return "Nothing to cancel.";
+    "cancel": (text, message) => {
+        if (!session_exists(message.channel)) {
+            return true;
         }
-        session_end(channel);
-        return "App canceled.";
+        session_end(message.channel);
+        return false;
     }
 };
 
@@ -181,15 +144,15 @@ client.on("message", (receivedMessage) => {
         if (receivedMessage.content.startsWith(WEBAPPIFY_PREFIX)) {
             let content = receivedMessage.content.substring(WEBAPPIFY_PREFIX.length);
             let command = content.split(" ", 1)[0];
-            let message = content.substr(command.length + 1);
+            let text = content.substr(command.length + 1);
+            let reaction = "❎";
             if (command in COMMANDS) {
-                let result = COMMANDS[command](message, receivedMessage.author, receivedMessage.channel);
-                if (result !== undefined && result !== null) {
-                    receivedMessage.channel.send(result);
+                let result = COMMANDS[command](text, receivedMessage);
+                if (result) {
+                    reaction = "✅";
                 }
-            } else {
-                receivedMessage.channel.send("No such command.");
             }
+            receivedMessage.react(reaction);
         }
     }
 });
@@ -204,6 +167,19 @@ client.login(WEBAPPIFY_TOKEN);
  */
 process.on("SIGINT", process.exit);
 process.on("SIGTERM", process.exit);
+
+/**
+ * Touches a session.
+ * @param message Message object
+ * @return Session
+ */
+function session_touch(message) {
+    if (!session_exists(message.channel)) {
+        session_create(message.channel);
+    }
+    session_update(message.channel, message.author);
+    return session_get(message.channel);
+}
 
 /**
  * Creates a new session for the specific channel.
@@ -316,21 +292,19 @@ class API {
      */
     static send(api = null, action = null, parameters = null, callback = null, APIs = {}) {
         // Perform the request
-        request.post({
-            url: WEBAPPIFY_URL_HOME + "apis/" + api + "/",
-            form: {
-                api: JSON.stringify(API.hook(api, action, parameters, APIs))
-            }
-        }, function (error, response, result) {
-            if (error && callback !== null) {
-                // Call the callback with an error
-                callback(false, error);
-            } else {
+        let url = WEBAPPIFY_URL_HOME + "apis/" + api + "/?api=" + encodeURIComponent(JSON.stringify(API.hook(api, action, parameters, APIs)));
+        https.get(url, (response) => {
+            let data = "";
+            response.on("data", (chunk) => {
+                data += chunk;
+            });
+            // End of data
+            response.on("end", () => {
                 // Make sure the callback exists and that the api and action aren't null
                 if (callback !== null && api !== null && action !== null) {
                     try {
                         // Try to parse the result as JSON
-                        let json = JSON.parse(result);
+                        let json = JSON.parse(data.toString());
                         try {
                             // Make sure the requested API exists in the result
                             if (api in json) {
@@ -356,8 +330,8 @@ class API {
                         }
                     }
                 }
-            }
-        });
+            });
+        }).end();
     }
 
     /**
