@@ -34,13 +34,13 @@ let templates = [];
 let sessions = {};
 
 const COMMANDS = {
-    "help": () => {
+    "help": (text, message) => {
         const embed = new MessageEmbed()
             .setColor(0x008080)
             .setTitle("AppBot Help")
             .addField(`${WEBAPPIFY_PREFIX}help`, "Show this message", false)
-            .addField(`${WEBAPPIFY_PREFIX}finish`, "Finish and build app", true)
-            .addField(`${WEBAPPIFY_PREFIX}cancel`, "Cancel app", true)
+            .addField(`${WEBAPPIFY_PREFIX}create`, "Build app", true)
+            .addField(`${WEBAPPIFY_PREFIX}discard`, "Close session and discard", true)
             .addField(`${WEBAPPIFY_PREFIX}template [template]`, "Change app template", true)
             .addField(`${WEBAPPIFY_PREFIX}name [name]`, "Change app's name", true)
             .addField(`${WEBAPPIFY_PREFIX}description [description]`, "Change app's description", true)
@@ -52,10 +52,10 @@ const COMMANDS = {
             .setFooter(WEBAPPIFY_FOOTER_TEXT, WEBAPPIFY_FOOTER_IMAGE)
         ;
         if (templates.length > 0) {
-            embed.addBlankField(false);
             embed.addField("Templates", templates.join("\n"));
         }
-        return embed;
+        message.channel.send(embed);
+        return true;
     },
     "template": (text, message) => {
         let session = session_touch(message);
@@ -95,7 +95,7 @@ const COMMANDS = {
         session_touch(message).app.configuration.load = text;
         return true;
     },
-    "finish": (text, message) => {
+    "create": (text, message) => {
         session_touch(message);
         API.send(WEBAPPIFY_API, "create", session_get(message.channel).app, (success, result) => {
             if (success) {
@@ -119,7 +119,7 @@ const COMMANDS = {
         });
         return true;
     },
-    "cancel": (text, message) => {
+    "discard": (text, message) => {
         if (!session_exists(message.channel)) {
             return true;
         }
